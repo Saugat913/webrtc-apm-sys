@@ -38,10 +38,12 @@ fn main() {
 
     println!("cargo:warning=Target: {} ({})", target_os, target_arch);
 
-    build_webrtc_src(&out_dir, &webrtc_src, &target_os, &target_arch);
+    build_webrtc_src(&out_dir, &webrtc_src, &target_os);
+    build_wrapper(&out_dir, &manifest_dir, &target_os);
+    generate_bindings(&out_dir, &manifest_dir);
 }
 
-fn build_webrtc_src(out_dir: &Path, webrtc_src_dir: &Path, target_os: &str, target_arch: &str) {
+fn build_webrtc_src(out_dir: &Path, webrtc_src_dir: &Path, target_os: &str) {
     let build_dir = out_dir.join("build");
 
     // Check for previous build and clean it
@@ -138,16 +140,14 @@ fn setup_library_linking(out_dir: &Path, target_os: &str) {
         println!("cargo:rustc-link-search=native={}", path.display());
         for libname in &lib_names {
             for ext in &lib_extension {
-                let combination_lib_name = path.join(format!("lib{}.{}", libname, ext));
-                if combination_lib_name.exists() {
+                let combination_lib_name = format!("lib{}.{}", libname, ext);
+                let combination_lib_name_path = path.join(&combination_lib_name);
+                if combination_lib_name_path.exists() {
                     println!(
                         "cargo:warning=Found the library:{}",
-                        combination_lib_name.display()
+                        combination_lib_name_path.display()
                     );
-                    println!(
-                        "cargo:rustc-link-lib=static={}",
-                        combination_lib_name.display()
-                    );
+                    println!("cargo:rustc-link-lib=static={}", libname);
                     found_lib = true;
                     break 'outer;
                 }
@@ -159,4 +159,50 @@ fn setup_library_linking(out_dir: &Path, target_os: &str) {
         println!("cargo:warning=No library found, attempting default linking");
         println!("cargo:rustc-link-lib=static=webrtc_audio_processing");
     }
+}
+fn build_wrapper(out_dir: &Path, manifest_dir: &Path, target_os: &str) {
+    println!("cargo:warning=Building C++ wrapper");
+
+    let wrapper_cpp = manifest_dir.join("wrapper.cpp");
+
+    if !wrapper_cpp.exists() {
+        println!("cargo:warning=Wrapper source not found, skipping wrapper build");
+        return;
+    }
+
+    let mut build = cc::Build::new();
+    build
+        .cpp(true)
+        .file(&wrapper_cpp)
+        .include(out_dir.join("include"))
+        .flag("-DWEBRTC_AUDIO_PROCESSING_ONLY_BUILD");
+
+    build.compile("wrapper");
+
+    println!("cargo:warning=C++ wrapper compiled successfully");
+}
+
+fn generate_bindings(out_dir: &Path, manifest_dir: &Path) {
+    println!("cargo:warning=Generating Rust bindings for C wrapper");
+
+    let wrapper_header = manifest_dir.join("wrapper.h");
+
+    if !wrapper_header.exists() {
+        println!("cargo:warning=Wrapper header not found, skipping bindgen");
+        return;
+    }
+
+    let bindings = bindgen::Builder::default()
+        .header(wrapper_header.to_string_lossy().to_string())
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .generate_comments(true)
+        .generate()
+        .expect("Unable to generate bindings");
+
+    let out_path = out_dir.join("bindings.rs");
+    bindings
+        .write_to_file(&out_path)
+        .expect("Couldn't write bindings!");
+
+    println!("cargo:warning=Bindings written to: {}", out_path.display());
 }
