@@ -1,5 +1,5 @@
 #include "modules/audio_processing/include/audio_processing.h"
-#include "webrtc_audio_processing.h"
+#include "wrapper.h"
 #include <stdlib.h>
 
 extern "C"

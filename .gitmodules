@@ -1,3 +1,3 @@
 [submodule "webrtc-src"]
 	path = webrtc-src
-	url = https://github.com/cross-platform/webrtc-audio-processing.git
+	url = https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing.git

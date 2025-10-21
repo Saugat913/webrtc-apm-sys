@@ -1,10 +1,11 @@
 use std::{
-    env,
-    fmt::format,
-    fs,
+    env, fs,
     path::{Path, PathBuf},
     process::Command,
 };
+
+const BUILD_LIBRARY_NAME: &str = "webrtc-audio-processing-2";
+const SOURCE_GIT_URL: &str = "https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing.git";
 
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -23,7 +24,7 @@ fn main() {
     if !webrtc_src.exists() {
         panic!(
             "Webrtc source not found at:{}. Please clone:\
-        git clone https://github.com/cross-platform/webrtc-audio-processing.git webrtc-src",
+        git clone {SOURCE_GIT_URL} webrtc-src",
             webrtc_src.display()
         );
     }
@@ -66,18 +67,27 @@ fn build_webrtc_src(out_dir: &Path, webrtc_src_dir: &Path, target_os: &str) {
     };
 
     // From readme of src: meson ../ command
-    let mut meson_args = vec![format!("{}", webrtc_src_dir.display())];
+    let mut meson_args = vec![
+        "setup".to_string(),
+        format!("{}", build_dir.display()),
+        "-Dcpp_args=-DNOMINMAX".to_string(),
+        "-Dcpp_std=c++20".to_string(),
+    ];
 
     // Where to install library : OUT dir
     meson_args.push(format!("--prefix={}", out_dir.display()));
 
     meson_args.push(format!("--buildtype={}", build_type));
 
-    println!("cargo:warning=Running: meson {}", meson_args.join(" "));
+    println!(
+        "cargo:warning=Running: meson {} at {}",
+        meson_args.join(" "),
+        &out_dir.display()
+    );
 
     let meson_status = Command::new("meson")
         .args(&meson_args)
-        .current_dir(&build_dir)
+        .current_dir(&webrtc_src_dir)
         .status()
         .expect("Failed to run meson. Make sure meson is installed and in PATH");
 
@@ -126,7 +136,7 @@ fn setup_library_linking(out_dir: &Path, target_os: &str) {
         _ => vec!["a", "so", "dylib"],
     };
 
-    let lib_names = vec!["webrtc_audio_processing"];
+    let lib_names = vec![BUILD_LIBRARY_NAME];
 
     let mut found_lib = false;
 
@@ -140,7 +150,7 @@ fn setup_library_linking(out_dir: &Path, target_os: &str) {
         println!("cargo:rustc-link-search=native={}", path.display());
         for libname in &lib_names {
             for ext in &lib_extension {
-                let combination_lib_name = format!("lib{}.{}", libname, ext);
+                let combination_lib_name = format!("{}.{}", libname, ext);
                 let combination_lib_name_path = path.join(&combination_lib_name);
                 if combination_lib_name_path.exists() {
                     println!(
@@ -157,14 +167,13 @@ fn setup_library_linking(out_dir: &Path, target_os: &str) {
 
     if !found_lib {
         println!("cargo:warning=No library found, attempting default linking");
-        println!("cargo:rustc-link-lib=static=webrtc_audio_processing");
+        println!("cargo:rustc-link-lib=static={}", BUILD_LIBRARY_NAME);
     }
 }
 fn build_wrapper(out_dir: &Path, manifest_dir: &Path, target_os: &str) {
     println!("cargo:warning=Building C++ wrapper");
 
     let wrapper_cpp = manifest_dir.join("wrapper.cpp");
-
     if !wrapper_cpp.exists() {
         println!("cargo:warning=Wrapper source not found, skipping wrapper build");
         return;
@@ -174,8 +183,10 @@ fn build_wrapper(out_dir: &Path, manifest_dir: &Path, target_os: &str) {
     build
         .cpp(true)
         .file(&wrapper_cpp)
+        .include(out_dir.join("include").join("webrtc-audio-processing-2"))
         .include(out_dir.join("include"))
-        .flag("-DWEBRTC_AUDIO_PROCESSING_ONLY_BUILD");
+        .flag("-DWEBRTC_AUDIO_PROCESSING_ONLY_BUILD")
+        .flag_if_supported("/std:c++20");
 
     build.compile("wrapper");
 

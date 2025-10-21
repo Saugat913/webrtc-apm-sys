@@ -35,7 +35,7 @@ Contributions welcome!
 
 ## Special Thanks
 
-This crate uses [webrtc-audio-processing](https://github.com/cross-platform/webrtc-audio-processing.git)
+This crate uses [webrtc-audio-processing](https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing.git)
  as a submodule for building the native WebRTC Audio Processing library.
 Huge thanks to the original author(s) for making their work available. 🙏
 
