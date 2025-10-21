@@ -62,11 +62,14 @@ fn build_webrtc_src(out_dir: &Path, webrtc_src_dir: &Path, target_os: &str) {
         build_dir.display()
     );
 
-    let build_type = if env::var("PROFILE").unwrap_or_default() == "release" {
-        "release"
-    } else {
-        "debug"
-    };
+    // let build_type = if env::var("PROFILE").unwrap_or_default() == "release" {
+    //     "release"
+    // } else {
+    //     "debug"
+    // };
+
+    let build_type = "release"; // we dont care it is debug build or release build in rust project 
+    // rust always use release build
 
     // From readme of src: meson ../ command
     let mut meson_args = vec![
@@ -74,6 +77,7 @@ fn build_webrtc_src(out_dir: &Path, webrtc_src_dir: &Path, target_os: &str) {
         format!("{}", build_dir.display()),
         "-Dcpp_args=-DNOMINMAX".to_string(),
         "-Dcpp_std=c++20".to_string(),
+        "-Ddefault_library=static".to_string(),
     ];
 
     // Where to install library : OUT dir
@@ -149,7 +153,7 @@ fn setup_library_linking(out_dir: &Path, target_os: &str) {
         println!("cargo:rustc-link-search=native={}", path.display());
         for libname in &lib_names {
             for ext in &lib_extension {
-                let combination_lib_name = format!("{}.{}", libname, ext);
+                let combination_lib_name = format!("lib{}.{}", libname, ext);
                 let combination_lib_name_path = path.join(&combination_lib_name);
                 if combination_lib_name_path.exists() {
                     println!(
