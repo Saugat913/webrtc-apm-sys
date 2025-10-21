@@ -5,7 +5,8 @@ use std::{
 };
 
 const BUILD_LIBRARY_NAME: &str = "webrtc-audio-processing-2";
-const SOURCE_GIT_URL: &str = "https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing.git";
+const SOURCE_GIT_URL: &str =
+    "https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing.git";
 
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -41,6 +42,7 @@ fn main() {
 
     build_webrtc_src(&out_dir, &webrtc_src, &target_os);
     build_wrapper(&out_dir, &manifest_dir, &target_os);
+    setup_library_linking(&out_dir, &target_os);
     generate_bindings(&out_dir, &manifest_dir);
 }
 
@@ -124,9 +126,6 @@ fn build_webrtc_src(out_dir: &Path, webrtc_src_dir: &Path, target_os: &str) {
         "cargo:warning=Installed the library at {}",
         out_dir.display()
     );
-
-    //Now lets link the library
-    setup_library_linking(out_dir, target_os);
 }
 fn setup_library_linking(out_dir: &Path, target_os: &str) {
     let possible_path_for_library = vec![out_dir.join("lib"), out_dir.join("lib64")];
